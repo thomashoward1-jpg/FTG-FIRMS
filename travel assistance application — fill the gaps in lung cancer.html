@@ -239,6 +239,17 @@
   }
   .sig-line input:focus { border-bottom-color: var(--teal); }
 
+  /* ── Signature Pad ── */
+  .sig-pad-wrapper { margin-bottom: 18px; }
+  .sig-pad-wrapper label { font-size: 13px; font-weight: 700; color: var(--gray); display: block; margin-bottom: 6px; }
+  .sig-canvas-box { border: 2px solid #aaa; border-radius: 4px; background: #fafafa; position: relative; display: inline-block; width: 100%; }
+  .sig-canvas-box canvas { display: block; width: 100%; height: 120px; cursor: crosshair; touch-action: none; }
+  .sig-canvas-box:focus-within { border-color: var(--teal); }
+  .sig-actions { display: flex; gap: 10px; margin-top: 6px; align-items: center; }
+  .sig-clear-btn { font-size: 12px; color: var(--error); background: none; border: 1px solid var(--error); border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+  .sig-clear-btn:hover { background: var(--error); color: white; }
+  .sig-hint { font-size: 11px; color: #999; font-style: italic; }
+
   /* ── Office use only ── */
   .office-banner {
     background: #595959;
@@ -650,6 +661,17 @@
 
     <div class="sig-block">
       <h4>Patient (Recipient)</h4>
+      <div class="sig-pad-wrapper">
+        <label>Patient Signature <span style="color:var(--error)">*</span></label>
+        <div class="sig-canvas-box">
+          <canvas id="patientSigCanvas" height="120"></canvas>
+        </div>
+        <div class="sig-actions">
+          <button type="button" class="sig-clear-btn" onclick="clearSig('patientSigCanvas','patientSigData')">Clear</button>
+          <span class="sig-hint">Sign with mouse or finger</span>
+        </div>
+        <input type="hidden" id="patientSigData" name="Patient Signature (image)"/>
+      </div>
       <div class="field-row two-col">
         <div class="sig-line" style="flex:1"><label for="patientNameSig">Patient Name (Printed)</label><input type="text" id="patientNameSig" name="patientNameSig"></div>
         <div class="sig-line" style="flex:1"><label for="patientDate">Date</label><input type="date" id="patientDate" name="patientDate"></div>
@@ -658,6 +680,17 @@
 
     <div class="sig-block" id="cgSigBlock" style="display:none;">
       <h4>Designated Caregiver</h4>
+      <div class="sig-pad-wrapper">
+        <label>Caregiver Signature</label>
+        <div class="sig-canvas-box">
+          <canvas id="cgSigCanvas" height="120"></canvas>
+        </div>
+        <div class="sig-actions">
+          <button type="button" class="sig-clear-btn" onclick="clearSig('cgSigCanvas','cgSigData')">Clear</button>
+          <span class="sig-hint">Sign with mouse or finger</span>
+        </div>
+        <input type="hidden" id="cgSigData" name="Caregiver Signature (image)"/>
+      </div>
       <div class="field-row two-col">
         <div class="sig-line" style="flex:1"><label for="cgNameSig">Caregiver Name (Printed)</label><input type="text" id="cgNameSig" name="cgNameSig"></div>
         <div class="sig-line" style="flex:1"><label for="cgDate">Date</label><input type="date" id="cgDate" name="cgDate"></div>
@@ -888,4 +921,58 @@ function buildReferralString() {
 </script>
 
 
+<script>
+// ── Signature Pad ─────────────────────────────────────────────────────────
+function initSigPad(canvasId, hiddenId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = rect.width  * dpr;
+    canvas.height = 120 * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.strokeStyle = '#1F3964';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const src  = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+
+  function start(e) { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); }
+  function move(e)  { e.preventDefault(); if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); }
+  function end(e)   { e.preventDefault(); drawing = false; document.getElementById(hiddenId).value = canvas.toDataURL(); }
+
+  canvas.addEventListener('mousedown',  start);
+  canvas.addEventListener('mousemove',  move);
+  canvas.addEventListener('mouseup',    end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove',  move,  { passive: false });
+  canvas.addEventListener('touchend',   end,   { passive: false });
+}
+
+function clearSig(canvasId, hiddenId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById(hiddenId).value = '';
+}
+
+// Init both pads on load
+window.addEventListener('load', function() {
+  initSigPad('patientSigCanvas', 'patientSigData');
+  initSigPad('cgSigCanvas',      'cgSigData');
+});
+</script>
 </body></html>
